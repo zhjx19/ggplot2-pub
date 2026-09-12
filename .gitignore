@@ -1,0 +1,10 @@
+# R
+.Rhistory
+.RData
+
+# rendered demo (reproducible via assets/demo.tape)
+demo.gif
+
+# OS
+Thumbs.db
+.DS_Store

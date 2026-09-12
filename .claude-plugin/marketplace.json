@@ -1,0 +1,16 @@
+{
+  "name": "ggplot2-pub",
+  "owner": { "name": "zhjx19", "url": "https://github.com/zhjx19" },
+  "metadata": { "description": "Marketplace hosting the ggplot2-pub plugin." },
+  "plugins": [
+    {
+      "name": "ggplot2-pub",
+      "description": "出版级 ggplot2 作图规范：真机验证过、中文环境不炸的 R 图表技能",
+      "version": "2.3.0",
+      "author": { "name": "zhjx19", "url": "https://github.com/zhjx19" },
+      "source": "./",
+      "category": "productivity",
+      "homepage": "https://github.com/zhjx19/ggplot-pub"
+    }
+  ]
+}

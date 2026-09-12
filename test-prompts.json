@@ -1,0 +1,42 @@
+---
+name: ggplot2-pub
+version: 2.0
+scenarios:
+  - id: TP1-new
+    type: functional
+    prompt: 用 R 画各渠道平均转化率的对比柱状图，放给老板看
+    expect:
+      - 先聚合、按值排序，再进入 ggplot()
+      - 重点渠道用强调色，其余中性灰，无伪图例
+      - 结论式标题左对齐（theme_pub），副标题/注脚各司其职
+      - ggsave 显式指定 width/height/dpi/bg
+      - 导出后打开文件做渲染验收
+    baseline_diff: v1.2 有全部规则但无执行顺序、无环境自检、无验收步骤
+  - id: TP2-trap
+    type: functional
+    prompt: 画个饼图展示各产品线的收入占比
+    expect:
+      - 给一次替代方案（排序柱状图/点图）并说明理由
+      - 用户坚持时照做，不反复劝（强制停手点协议）
+    baseline_diff: v1.2 只有一句"禁止默认使用"，没有冲突处理协议
+  - id: TP3-fix
+    type: functional
+    prompt: 审稿人说我的图字太小、标签重叠、颜色像彩虹，帮我改
+    expect:
+      - 命中 base_size 提升、ggrepel、Okabe-Ito/viridis 替换
+      - 中文标签走第 6 步防线，导出后渲染验收
+    baseline_diff: v1.2 内容覆盖但缺渲染验收与环境防线
+trigger:
+  positive:
+    - 画图 / 作图 / 出图
+    - 这张 ggplot2 图不好看
+    - 论文 figure / 出版级图表
+    - ggsave 导出 / 导出 300dpi
+    - 按审稿意见改图
+    - 两张图拼一起（patchwork）
+    - 配色改成色盲安全的
+  negative:
+    - 用 matplotlib 画图（Python 域）
+    - plotly / bokeh 交互图
+    - 只清洗数据不出图
+    - 搭建 dashboard
