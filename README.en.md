@@ -19,10 +19,6 @@
 
 ---
 
-![demo](assets/demo.gif)
-
-<sub>A real terminal replay of the 8-check smoke test (`scripts/make-demo.R` regenerates this GIF; no staged screenshots).</sub>
-
 | What agents draw by default | With this skill |
 | --- | --- |
 | ![before](assets/before.png) | ![after](assets/after.png) |
@@ -114,8 +110,8 @@ ggplot2-pub/
 ├── scripts/
 │   ├── smoke-cjk.R                 # environment smoke test: 8 checks, all-PASS before delivery
 │   ├── make-showcase.R             # re-render the README before/after images
-│   └── make-demo.R                 # regenerate assets/demo.gif from a real smoke replay
-├── assets/                         # before/after PNGs, demo.gif + vhs tape
+│   └── make-demo.R                 # optional: regenerate a terminal demo GIF from a real replay
+├── assets/                         # before/after PNGs + vhs tape
 ├── examples/                       # real crash evidence archive
 ├── README.md / README.en.md / LICENSE / .claude-plugin/  # packaging
 └── this folder doubles as an OpenCode skill directory

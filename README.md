@@ -19,10 +19,6 @@
 
 ---
 
-![demo](assets/demo.gif)
-
-<sub>8 项冒烟检查的真实终端回放（`scripts/make-demo.R` 重录，非摆拍）。</sub>
-
 | 你会让 Agent 画出的图 | 装了本技能后的图 |
 | --- | --- |
 | ![before](assets/before.png) | ![after](assets/after.png) |
@@ -114,8 +110,8 @@ ggplot2-pub/
 ├── scripts/
 │   ├── smoke-cjk.R                 # 环境冒烟：8 项检查，全 PASS 才交付
 │   ├── make-showcase.R             # 重渲染 README 前后对照图
-│   └── make-demo.R                 # 重录 assets/demo.gif（真实回放，无需 vhs）
-├── assets/                         # before/after PNG + demo.gif + vhs 录制带
+│   └── make-demo.R                 # 可选：重录终端演示 GIF（真实回放，无需 vhs）
+├── assets/                         # before/after PNG + vhs 录制带
 ├── examples/                       # 真实事故证据存档
 ├── README.md / README.en.md / LICENSE / .claude-plugin/  # 发布包装
 └── 本目录即 OpenCode 技能目录，OpenCode 直接加载
