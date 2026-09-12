@@ -9,10 +9,10 @@ description: |
   纯数据清洗、仪表盘开发。
 license: MIT
 metadata:
+  # 注意：metadata 值必须保持单行引号字符串——部分 skill CLI 的 YAML 解析器不接受多行裸标量
   version: "2.3"
-  source: 重写自 05-ggplot2-rule.md v1.2（Cursor rule）；v2.1 融合 ggauto/plotthis/ggnext 三包提炼；
-  v2.3 默认主题与配色采用 tidyecology.com 的 datasheet 风（已获用户指定）
-  原稿存档见 references/baseline-v1.2-cursor-rule.md
+  source: "重写自 05-ggplot2-rule.md v1.2（Cursor rule）；v2.1 融合 ggauto/plotthis/ggnext 三包提炼；v2.3 默认主题与配色采用 tidyecology.com datasheet 风（用户指定）"
+  baseline: "references/baseline-v1.2-cursor-rule.md"
   verified: "R 4.6.1 / ggplot2 4.0.3 / dplyr 1.2.1 / Windows 11 实测通过（scripts/smoke-cjk.R）"
 ---
 
