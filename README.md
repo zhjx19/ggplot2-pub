@@ -1,3 +1,5 @@
+<sub>🌐 <b>中文</b> · <a href="README.en.md">English</a></sub>
+
 <div align="center">
 
 # ggplot2-pub
@@ -16,6 +18,10 @@
 </div>
 
 ---
+
+![demo](assets/demo.gif)
+
+<sub>8 项冒烟检查的真实终端回放（`scripts/make-demo.R` 重录，非摆拍）。</sub>
 
 | 你会让 Agent 画出的图 | 装了本技能后的图 |
 | --- | --- |
@@ -106,11 +112,12 @@ ggplot2-pub/
 │   ├── img/cjk-crash-mojibake.png  # 真实事故截图（乱码标题）
 │   └── baseline-v1.2-cursor-rule.md  # v1.2 原始规则存档
 ├── scripts/
-│   ├── smoke-cjk.R                 # 环境冒烟：6 项检查，全 PASS 才交付
-│   └── make-showcase.R             # 重渲染 README 前后对照图
-├── assets/                         # before/after PNG + vhs 录制带
+│   ├── smoke-cjk.R                 # 环境冒烟：8 项检查，全 PASS 才交付
+│   ├── make-showcase.R             # 重渲染 README 前后对照图
+│   └── make-demo.R                 # 重录 assets/demo.gif（真实回放，无需 vhs）
+├── assets/                         # before/after PNG + demo.gif + vhs 录制带
 ├── examples/                       # 真实事故证据存档
-├── README.md / LICENSE / .claude-plugin/  # 发布包装（发布时才用）
+├── README.md / README.en.md / LICENSE / .claude-plugin/  # 发布包装
 └── 本目录即 OpenCode 技能目录，OpenCode 直接加载
 ```
 
