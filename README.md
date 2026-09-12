@@ -9,7 +9,7 @@
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-ggplot2--pub-blueviolet)](SKILL.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![smoke](https://img.shields.io/badge/smoke-8%20checks%20%2F%200%20FAIL-brightgreen)](scripts/smoke-cjk.R)
-[![skills.sh](https://skills.sh/b/zhjx19/ggplot-pub)](https://skills.sh/zhjx19/ggplot-pub)
+[![skills.sh](https://skills.sh/b/zhjx19/ggplot2-pub)](https://skills.sh/zhjx19/ggplot2-pub)
 
 **出版级 ggplot2 作图技能：真机验证过每条规则、中文环境不炸的 R 图表规范。**
 
@@ -50,7 +50,7 @@
 ## 快速开始
 
 ```bash
-npx skills add zhjx19/ggplot-pub
+npx skills add zhjx19/ggplot2-pub
 ```
 
 R 侧依赖：核心 4 包第 0 步自动补装；常用增强就两个；**配色/模板全走零依赖方案，不逼用户装冷门包**：

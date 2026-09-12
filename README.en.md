@@ -9,7 +9,7 @@
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-ggplot2--pub-blueviolet)](SKILL.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![smoke](https://img.shields.io/badge/smoke-8%20checks%20%2F%200%20FAIL-brightgreen)](scripts/smoke-cjk.R)
-[![skills.sh](https://skills.sh/b/zhjx19/ggplot-pub)](https://skills.sh/zhjx19/ggplot-pub)
+[![skills.sh](https://skills.sh/b/zhjx19/ggplot2-pub)](https://skills.sh/zhjx19/ggplot2-pub)
 
 **Publication-grade ggplot2 skill: every rule verified on real hardware, built to survive Chinese/CJK environments.**
 
@@ -50,7 +50,7 @@ Expected behavior: ① aggregate and sort before plotting, highlight the key gro
 ## Quick start
 
 ```bash
-npx skills add zhjx19/ggplot-pub
+npx skills add zhjx19/ggplot2-pub
 ```
 
 R-side dependencies — the core 4 are auto-installed; **palettes and templates are zero-dependency, no obscure packages pushed on you**:
