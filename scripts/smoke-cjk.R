@@ -8,6 +8,7 @@ report <- function(status, label, detail = "") {
   results <<- c(results, status)
   cat(sprintf("[%s] %s%s\n", status, label, if (nzchar(detail)) paste0(" -- ", detail) else ""))
 }
+`%||%` <- function(a, b) if (is.null(a)) b else a
 
 cat("== ggplot2-pub smoke ==\n")
 cat("R ", as.character(getRversion()), "| ggplot2 ", as.character(packageVersion("ggplot2")), "\n", sep = "")
@@ -29,7 +30,6 @@ if (length(miss)) report("FAIL", "core packages missing", paste(miss, collapse =
 suppressPackageStartupMessages({
   library(ggplot2); library(dplyr); library(forcats); library(scales)
 })
-`%||%` <- function(a, b) if (is.null(a)) b else a
 
 # 2. theme_pub() exists, uses plain element_text (NOT ggtext textbox), and is overridable
 te_paper  <- "#f5f4ee"; te_ink <- "#16241d"; te_body <- "#2c3a31"; te_line <- "#dad9ca"
@@ -81,6 +81,30 @@ CN_X     <- "\u5e73\u5747\u5f97\u5206"                                       # x
 CN_CAP   <- "\u6570\u636e\u6765\u6e90\uff1a\u9879\u76ee\u6570\u636e"         # caption
 FOCUS    <- "\u76ee\u6807\u7ec4"                                             # focus group
 
+# Pick an installed CJK family. cairo_pdf ALONE is not enough for Chinese: the
+# family still resolves to a Latin-only face (Arial on Windows) and every glyph
+# comes out as a box. See SKILL.md step 6 (two-step export).
+cjk_family <- {
+  pref <- c("Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans CJK", "Source Han Sans SC",
+            "Source Han Sans", "PingFang SC", "Hiragino Sans GB", "SimSun", "SimHei",
+            "WenQuanYi Zen Hei", "Malgun Gothic")
+  fam <- character(0)
+  if (requireNamespace("systemfonts", quietly = TRUE)) {
+    have <- unique(systemfonts::system_fonts()$family)
+    fam <- pref[pref %in% have]                      # prefer Chinese faces
+    if (!length(fam)) {
+      pat <- "YaHei|SimSun|SimHei|Noto Sans CJK|Source Han|PingFang|Hiragino|Malgun Gothic|MS Gothic|WenQuanYi"
+      fam <- unique(grep(pat, have, value = TRUE))   # else any CJK-capable face
+    }
+  }
+  if (length(fam)) fam[[1]] else NA_character_
+}
+if (is.na(cjk_family)) {
+  report("WARN", "no CJK font family found", "Chinese export cannot be glyph-verified here")
+} else {
+  report("INFO", "CJK font family for canary", cjk_family)
+}
+
 set.seed(1)
 df <- data.frame(
   group = rep(c("\u57fa\u7ebf\u7ec4", "\u5bf9\u7167A", "\u5bf9\u7167B", FOCUS, "\u5907\u9009\u7ec4"), each = 40),
@@ -95,7 +119,7 @@ p <- ggplot(plot_data, aes(x = value, y = group, fill = is_focus)) +
   scale_x_continuous(labels = scales::comma) +
   scale_fill_manual(values = c(`TRUE` = "#b5534e", `FALSE` = "#BDBDBD"), guide = "none") +
   labs(title = CN_TITLE, subtitle = CN_SUB, x = CN_X, y = NULL, caption = CN_CAP) +
-  theme_pub()
+  theme_pub(base_family = if (is.na(cjk_family)) "sans" else cjk_family)
 
 outdir <- file.path(tempdir(), "ggplot2-pub-smoke")
 dir.create(outdir, showWarnings = FALSE)
@@ -108,14 +132,37 @@ if (is.null(res) && file.exists(f) && file.size(f) > 10000) {
   report("FAIL", "CJK canary failed", if (!is.null(res)) res else "file too small (blank image?)")
 }
 
-# 5. CJK PDF export via cairo_pdf (default pdf() device silently replaces CJK with dots)
+# 5. CJK PDF export must be verified on the GLYPHS, not on the file existing.
+#    Two independent ways this fails silently:
+#      a) the default pdf() device replaces every CJK glyph with a dot;
+#      b) cairo_pdf with a Latin-only family embeds Arial, every glyph becomes a
+#         box -- and the text layer STILL extracts fine, so a text-only check
+#         passes while the rendered page is unreadable.
+#    Assert BOTH the text layer (catches a) and the embedded font (catches b).
+#    Checking file.exists() + size is what this used to do; a boxed PDF passed.
 fp <- file.path(outdir, "cjk-canary.pdf")
-resp <- tryCatch({ ggsave(fp, plot = p, width = 8, height = 5, device = cairo_pdf); NULL },
+resp <- tryCatch({ ggsave(fp, plot = p, width = 8, height = 5,
+                          device = cairo_pdf, bg = "#f5f4ee"); NULL },
   error = function(c) conditionMessage(c))
-if (is.null(resp) && file.exists(fp) && file.size(fp) > 5000) {
-  report("PASS", "CJK PDF via cairo_pdf", sprintf("%.1f KB -> %s", file.size(fp) / 1024, fp))
+if (!is.null(resp) || !file.exists(fp)) {
+  report("FAIL", "CJK PDF export failed", if (!is.null(resp)) resp else "no file written")
+} else if (is.na(cjk_family)) {
+  report("WARN", "CJK PDF written but NOT glyph-verified", "no CJK font family available")
+} else if (!requireNamespace("pdftools", quietly = TRUE)) {
+  report("WARN", "CJK PDF written but NOT glyph-verified",
+         "pdftools missing -- a boxed or dotted PDF would pass unnoticed")
 } else {
-  report("FAIL", "CJK PDF export failed", if (!is.null(resp)) resp else "file too small")
+  txt <- paste(pdftools::pdf_text(fp), collapse = " ")
+  ft  <- pdftools::pdf_fonts(fp)
+  text_ok <- grepl(CN_X, txt, fixed = TRUE)
+  font_ok <- any(grepl(gsub(" ", "", cjk_family), gsub(" ", "", ft$name), ignore.case = TRUE))
+  if (text_ok && font_ok) {
+    report("PASS", "CJK PDF glyphs verified (text layer + embedded CJK font)",
+           sprintf("%.1f KB, font=%s", file.size(fp) / 1024, cjk_family))
+  } else {
+    report("FAIL", "CJK PDF glyph check failed",
+           sprintf("text_layer_ok=%s embedded_cjk_font=%s", text_ok, font_ok))
+  }
 }
 
 # 6. zero-dep CVD checker sanity (base-R Machado simulation, see references/palettes.md)

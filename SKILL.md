@@ -155,10 +155,17 @@ ggsave("figures/plot.png", plot = p,
 
 - 必须显式 `width`、`height`、`dpi`、`bg`；`bg` 与主题背景一致——theme_pub 图用
   `bg = "#f5f4ee"`（深色编辑器/幻灯片环境下透明背景会不可读）。
-- 报告预览用 PNG；论文投稿用 PDF/SVG 矢量，**中文图必须 `ggsave(device = cairo_pdf, ...)`**——
-  默认 `pdf()` 设备不做 CJK 转换，会把全部汉字**静默**变成点号（实测 42 条转换警告、
-  无任何报错、文件照常生成）。SVG 两写法实测中文正常：默认设备（有 svglite 时）
-  或 `device = svg`（零依赖）。
+- 报告预览用 PNG；论文投稿用 PDF/SVG 矢量。**中文图导出是两步，缺一步就废**：
+  1. `device = cairo_pdf`——默认 `pdf()` 设备不做 CJK 转换，会把全部汉字**静默**变成点号
+     （警告数与图里汉字数成正比，实测 61 条；无任何报错、文件照常生成）；
+  2. **同时指定中文字体族**——只加 `device` 不够：字体族仍是 `sans`，在 Windows 上落到 Arial，
+     而 Arial 没有中文字形，结果是**方块**（实测：字体表里内嵌的是 ArialMT 子集、文字层抽取正常、
+     渲出来全是 `□`）。写法：`theme_pub(base_family = "<中文字体>")`。
+- 零配置替代：`ggsave(device = ragg::agg_png)` 走系统字体回退，默认 `sans` 也能出中文（位图；
+  投论文要矢量仍走上面两步）。`sysfonts::font_add()` + `showtext::showtext_auto()` 也可行，
+  代价是文字转轮廓、PDF 里抽不出文本。
+- 中文 PDF 会明显变大（汉字越多倍数越高，实测 7～10 倍）。SVG 两写法实测中文正常：默认设备
+  （有 svglite 时）或 `device = svg`（零依赖）。
 - 数据跨零（有正有负）时加灰色零线，让正负一眼可分：
   `if (min(v) <= 0 && max(v) >= 0) p = p + geom_hline(yintercept = 0, colour = "grey", linewidth = 0.8)`
 - 跨数量级用 `scale_y_log10()`；日期轴用 `scale_x_date(date_breaks = "2 months", date_labels = "%Y-%m")`——
@@ -170,10 +177,10 @@ ggsave("figures/plot.png", plot = p,
 | 症状 | 根因 | 处置 |
 |---|---|---|
 | `ggsave` 报 `gridtext ... isn't supported` 且导出空白图 | 脚本中文被 legacy locale 读成乱码，乱码在富文本管线里拼出伪 HTML 标签 | 用 UTF-8 保存脚本并在 IDE 中运行；标题副标题保持纯文本（见第 3 步） |
-| 图里中文变方块 `□□□` | 图形设备缺 CJK 字形 | `showtext::showtext_auto()`（会话内一次即可），或 `ggsave(device = ragg::agg_png)` |
+| 图里中文变方块 `□□□` | 图形设备缺 CJK 字形。**注意：只加 `device = cairo_pdf` 也会落到这一行**——设备对了，字体族仍是 Arial | `theme_pub(base_family = "<中文字体>")`，或 `ggsave(device = ragg::agg_png)`；`showtext` 必须**先 `sysfonts::font_add()` 注册中文字体**，否则照样方块 |
 | `+ theme()` 报 `Only elements of the same class can be merged` | 在覆盖 ggtext textbox 主题元素 | 换 `theme_pub()`；要变体就写新的工厂函数 |
 | 终端跑 `Rscript` 时路径/字符串中文变乱码 | R 启动在非 UTF-8 locale | 启动前设环境变量 `LC_CTYPE="Chinese (Simplified)_China.utf8"`（实测可从 Git Bash 救回整个管线） |
-| 投稿 PDF 打开全是点号 `......`，无报错 | `ggsave` 默认 `pdf()` 设备不做 CJK 转换，静默逐字替换 | 中文图一律 `ggsave(device = cairo_pdf, ...)`（实测 0 警告、字体内嵌、文件约 5 倍大） |
+| 投稿 PDF 打开全是点号 `......`，无报错 | `ggsave` 默认 `pdf()` 设备不做 CJK 转换，静默逐字替换 | `ggsave(device = cairo_pdf, ...)` **且**指定中文字体族——**只做前半步会从"点号"变成"方块"**（见第 6 步两步走）。实测 cairo_pdf + 中文字体后 0 警告、字体内嵌 |
 
 ### 第 7 步：交付前验收（不可省）
 
@@ -191,7 +198,10 @@ ggsave("figures/plot.png", plot = p,
 5. **对账交付**：正式交付时把"图上画的数"一并导出，图和数据必须对得上：
    `write.csv(ggplot_build(p)$data[[1]], "figure-1-data.csv", row.names = FALSE)`
    （存的是统计变换后的最终绘制值，不是喂进去的原始值。）
-6. 环境存疑时跑一次冒烟：`Rscript scripts/smoke-cjk.R`，全 PASS 再交付。
+6. 环境存疑时跑一次冒烟：`Rscript scripts/smoke-cjk.R`，全 PASS 再交付。该脚本第 5 项**验字形**
+   （文字层 + 内嵌字体），不是只验文件存在——因为它以前只验 `file.exists + size`，一张**方块**的
+   PDF 照样报 PASS。**"文件生成了"和"测试全绿了"都不等于"图对了"**，第 4 条"打开看一遍"永远是
+   最后一道。
 
 ## 强制停手点
 
@@ -213,6 +223,7 @@ ggsave("figures/plot.png", plot = p,
 | 用 `xlim()/ylim()` 放大 | `coord_cartesian()` |
 | 柱状图不从 0 开始 | 从 0 开始或换点图 |
 | ggtext textbox 做标题且图含中文 | `theme_pub()` 纯文本标题（第 3 步） |
+| 中文图只加 `device = cairo_pdf`，不指定中文字体族 | `theme_pub(base_family = "<中文字体>")`，或 `ragg::agg_png`（第 6 步两步走） |
 
 ## 依赖与降级（不逼用户装冷门包）
 
