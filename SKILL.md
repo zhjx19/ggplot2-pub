@@ -10,8 +10,8 @@ description: |
 license: MIT
 metadata:
   # 注意：metadata 值必须保持单行引号字符串——部分 skill CLI 的 YAML 解析器不接受多行裸标量
-  version: "2.3"
-  source: "重写自 05-ggplot2-rule.md v1.2（Cursor rule）；v2.1 融合 ggauto/plotthis/ggnext 三包提炼；v2.3 默认主题与配色采用 tidyecology.com datasheet 风（用户指定）"
+  version: "2.4"
+  source: "重写自 05-ggplot2-rule.md v1.2（Cursor rule）；v2.1 融合 ggauto/plotthis/ggnext 三包提炼；v2.3 默认主题与配色采用 tidyecology.com datasheet 风（用户指定）；v2.4 中文导出处方补全（设备 + 字体两步）、冒烟测试改为真验字形"
   baseline: "references/baseline-v1.2-cursor-rule.md"
   verified: "R 4.6.1 / ggplot2 4.0.3 / dplyr 1.2.1 / Windows 11 实测通过（scripts/smoke-cjk.R）"
 ---
@@ -155,17 +155,18 @@ ggsave("figures/plot.png", plot = p,
 
 - 必须显式 `width`、`height`、`dpi`、`bg`；`bg` 与主题背景一致——theme_pub 图用
   `bg = "#f5f4ee"`（深色编辑器/幻灯片环境下透明背景会不可读）。
-- 报告预览用 PNG；论文投稿用 PDF/SVG 矢量。**中文图导出是两步，缺一步就废**：
-  1. `device = cairo_pdf`——默认 `pdf()` 设备不做 CJK 转换，会把全部汉字**静默**变成点号
-     （警告数与图里汉字数成正比，实测 61 条；无任何报错、文件照常生成）；
-  2. **同时指定中文字体族**——只加 `device` 不够：字体族仍是 `sans`，在 Windows 上落到 Arial，
-     而 Arial 没有中文字形，结果是**方块**（实测：字体表里内嵌的是 ArialMT 子集、文字层抽取正常、
-     渲出来全是 `□`）。写法：`theme_pub(base_family = "<中文字体>")`。
-- 零配置替代：`ggsave(device = ragg::agg_png)` 走系统字体回退，默认 `sans` 也能出中文（位图；
-  投论文要矢量仍走上面两步）。`sysfonts::font_add()` + `showtext::showtext_auto()` 也可行，
-  代价是文字转轮廓、PDF 里抽不出文本。
-- 中文 PDF 会明显变大（汉字越多倍数越高，实测 7～10 倍）。SVG 两写法实测中文正常：默认设备
-  （有 svglite 时）或 `device = svg`（零依赖）。
+- 报告预览用 PNG；论文投稿用 PDF/SVG 矢量。**中文图导出就两件事：设备对 + 字体有中文字形**，
+  缺一件就废：
+  - **设备**（选一）：`device = cairo_pdf`（矢量、文字可选中，投稿首选）｜
+    `sysfonts::font_add()` + `showtext::showtext_auto()`（文字转轮廓，PDF 抽不出文本）｜
+    `ragg::agg_png`（位图，零配置，但不能当投稿矢量）；
+  - **字体**（不能省）：`theme_pub(base_family = "<中文字体>")`——走 showtext 则由 `font_add()` 注册。
+    省了它，字体族落到 `sans`，在 Windows 上就是 Arial，**没有中文字形**。
+- 只做设备那一步会看到的两种残局：默认 `pdf()` → **点号**（静默，文件照常生成；警告数与图里汉字数
+  成正比，实测 61 条）；`cairo_pdf` 不指定字体 → **方块**（字体表里内嵌的是 ArialMT 子集，而文字层
+  抽取却正常，所以只有打开看才发现）。
+- 中文 PDF 会明显变大（实测 7～10 倍）。SVG 两写法实测中文正常：默认设备（有 svglite 时）
+  或 `device = svg`（零依赖）。
 - 数据跨零（有正有负）时加灰色零线，让正负一眼可分：
   `if (min(v) <= 0 && max(v) >= 0) p = p + geom_hline(yintercept = 0, colour = "grey", linewidth = 0.8)`
 - 跨数量级用 `scale_y_log10()`；日期轴用 `scale_x_date(date_breaks = "2 months", date_labels = "%Y-%m")`——
