@@ -109,10 +109,14 @@ ggplot2-pub/
 │   └── baseline-v1.2-cursor-rule.md  # v1.2 原始规则存档
 ├── scripts/
 │   ├── smoke-cjk.R                 # 环境冒烟：8 项检查，全 PASS 才交付
+│   ├── lint_plot.R                 # 「快检」的可执行版本：12 条规则 + 5 条"需人看"
+│   ├── verify_charts.R             # 图表语料回归：每条规则一对违规/合规用例
 │   ├── make-showcase.R             # 重渲染 README 前后对照图
 │   └── make-demo.R                 # 可选：重录终端演示 GIF（真实回放，无需 vhs）
 ├── assets/                         # before/after PNG + vhs 录制带
-├── examples/                       # 真实事故证据存档
+├── examples/
+│   ├── cjk-crash-mojibake.png      # 真实事故证据存档
+│   └── chart_corpus/               # 每条 linter 规则一对违规/合规用例
 ├── README.md / README.en.md / LICENSE / .claude-plugin/  # 发布包装
 └── 本目录即 OpenCode 技能目录，OpenCode 直接加载
 ```
@@ -120,12 +124,20 @@ ggplot2-pub/
 ## 验证与测试
 
 ```bash
-Rscript scripts/smoke-cjk.R    # 期望：全 PASS（终端下 1 条 WARN 属正常，见防线表）
+Rscript scripts/smoke-cjk.R      # 环境与中文导出：期望全 PASS
+Rscript scripts/verify_charts.R  # 图表规则语料：期望 25 check / 0 failure
 ```
 
+**两套回归各管一头**：`smoke-cjk.R` 管环境（locale、包、中文导出的**字形**——它验文字层和内嵌
+字体，不是只验文件存在）；`verify_charts.R` 管规则——每条 linter 规则配一对**违规/合规**用例，
+**违规例没被抓住 = 规则没落地**。改 linter 或加规则后必跑后者，漏加用例会被元检查挡下。
+
+规则里**不能机检的五条**（标题是否结论式、配色是否协调、标签是否真没压在一起、缺失是否已说明、
+跨图同色）linter 会明确报 `SKIP`，只能靠打开图看——不假装被验过。
+
 验收 prompt：给 Agent 一份含分类变量的 CSV，说"画成出版级对比图"。合格 = 出现排序、
-高亮、`theme_pub`、显式导出参数，且 Agent 主动打开导出文件确认渲染无误。
-改任何渲染规则前跑一次冒烟、改完再跑一次——两次都要全 PASS。
+高亮、`theme_pub`、显式导出参数，`lint_plot()` 全绿，且 Agent 主动打开导出文件确认渲染无误。
+改任何渲染规则前跑一次回归、改完再跑一次——两次都要全 PASS。
 
 ## 致谢
 

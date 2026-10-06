@@ -10,8 +10,8 @@ description: |
 license: MIT
 metadata:
   # 注意：metadata 值必须保持单行引号字符串——部分 skill CLI 的 YAML 解析器不接受多行裸标量
-  version: "2.5"
-  source: "重写自 05-ggplot2-rule.v1.2（Cursor rule）；v2.1 融合 ggauto/plotthis/ggnext 三包提炼；v2.3 默认主题与配色采用 tidyecology.com datasheet 风（用户指定）；v2.4 中文导出处方补全（设备 + 字体两步）、冒烟测试改为真验字形；v2.5 补末端标签去图例、小样本别分组拟合"
+  version: "2.6"
+  source: "重写自 05-ggplot2-rule.v1.2（Cursor rule）；v2.1 融合 ggauto/plotthis/ggnext 三包提炼；v2.3 默认主题与配色采用 tidyecology.com datasheet 风（用户指定）；v2.4 中文导出处方补全（设备 + 字体两步）、冒烟测试改为真验字形；v2.5 补末端标签去图例、小样本别分组拟合；v2.6 快检变可执行 linter + 图表语料回归"
   baseline: "references/baseline-v1.2-cursor-rule.md"
   verified: "R 4.6.1 / ggplot2 4.0.3 / dplyr 1.2.1 / Windows 11 实测通过（scripts/smoke-cjk.R）"
 ---
@@ -188,23 +188,24 @@ ggsave("figures/plot.png", plot = p,
 
 1. 数据在 `ggplot()` 前已整理；类别按值排序，factor 顺序是有意为之。
 2. 图表类型匹配变量关系；无饼图/3D/双轴/彩虹色。
-3. **六条快检**（逐条过，译自作图 linter 实践）：
-   - 图里有图层吗（空 `ggplot()` 不该存在）；
-   - 连续型 geom（point/line）没把分类列喂给 y；
-   - 缺失值多到影响解读时，图上或注脚已说明；
-   - 图例级别超过 6 个 → 改分面，不堆图例；
-   - 图例是否与坐标轴标签 / 折线末端标签重复？重复就去掉（`legend.position = "none"`）；
-   - `sqrt()/log()` 类变换没喂非法值；
-   - 同一类别在多面板/多图里颜色一致。
+3. **快检——可机检的部分直接跑 linter，别用眼睛过**：
+   `source("scripts/lint_plot.R"); lint_plot(p)` → 逐条 PASS/WARN/FAIL。覆盖 12 条：
+   空图层、常量进 `aes()`（伪图例）、图例级别 >6、图例重复坐标轴或标签、柱状图 Y 轴从 0 开始、
+   字符类别按值排序、`xlim()/ylim()` 删数据、饼图/双轴、`log/sqrt` 喂非正值、小样本分组拟合、
+   两个轴都是分类的散点。
+   **五条只能靠眼睛**（标题是否结论式、配色是否协调、标签是否真没压在一起、缺失是否已说明、
+   跨图同色）——linter 明确报 `SKIP`，不假装被验过，它们归下一条。
 4. **把导出的文件实际打开看一遍**：中文可读、无 `□`、标题左对齐、标签不重叠、
    柱状图 Y 轴从 0 开始、跨零数据零线可见。只看过代码没看过图 = 没有验收。
 5. **对账交付**：正式交付时把"图上画的数"一并导出，图和数据必须对得上：
    `write.csv(ggplot_build(p)$data[[1]], "figure-1-data.csv", row.names = FALSE)`
    （存的是统计变换后的最终绘制值，不是喂进去的原始值。）
-6. 环境存疑时跑一次冒烟：`Rscript scripts/smoke-cjk.R`，全 PASS 再交付。该脚本第 5 项**验字形**
-   （文字层 + 内嵌字体），不是只验文件存在——因为它以前只验 `file.exists + size`，一张**方块**的
-   PDF 照样报 PASS。**"文件生成了"和"测试全绿了"都不等于"图对了"**，第 4 条"打开看一遍"永远是
-   最后一道。
+6. 改渲染规则或交付前跑两个回归，全 PASS 再交付：
+   - `Rscript scripts/smoke-cjk.R` —— 环境与中文导出。第 5 项**验字形**（文字层 + 内嵌字体），
+     不是只验文件存在；它以前只验 `file.exists + size`，一张**方块**的 PDF 照样报 PASS。
+   - `Rscript scripts/verify_charts.R` —— 图表语料回归：每条 linter 规则一对**违规/合规**用例，
+     **违规没被抓住 = 规则没落地**。改 linter 或加规则后必跑（漏加用例会被元检查挡下）。
+   **"文件生成了"和"测试全绿了"都不等于"图对了"**，第 4 条"打开看一遍"永远是最后一道。
 
 ## 强制停手点
 
@@ -248,3 +249,5 @@ ggsave("figures/plot.png", plot = p,
 - `references/antipatterns.md` —— 反模式前后对照代码与渲染图
 - `references/baseline-v1.2-cursor-rule.md` —— v1.2 原始规则存档（溯源用）
 - `scripts/smoke-cjk.R` —— 中文环境冒烟测试（第 7 步用）
+- `scripts/lint_plot.R` —— 「快检」的可执行版本（12 条规则 + 5 条"需人看"）
+- `examples/chart_corpus/` —— 每条规则一对违规/合规用例（`scripts/verify_charts.R` 的靶子）
