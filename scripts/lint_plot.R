@@ -64,7 +64,17 @@ human_only_rules = c("title_is_insight", "palette_harmony", "labels_not_overlapp
 
 ## ---------------------------------------------------------------- rules
 ## Each rule returns list(status, detail); status in PASS/WARN/FAIL/SKIP.
+## The public entry point never throws: a linter that crashes takes the whole
+## regression down with it, which is worse than a missed rule. Internal errors
+## surface as a FAIL row named `linter_error` instead of an exception.
 lint_plot = function(p, min_group = 10, max_legend = 6) {
+  tryCatch(
+    .lint_plot_impl(p, min_group, max_legend),
+    error = function(e) data.frame(rule = "linter_error", status = "FAIL",
+                                   detail = conditionMessage(e), stringsAsFactors = FALSE))
+}
+
+.lint_plot_impl = function(p, min_group = 10, max_legend = 6) {
   res = list()
   add = function(rule, status, detail = "") res[[length(res) + 1L]] <<-
     data.frame(rule = rule, status = status, detail = detail, stringsAsFactors = FALSE)
@@ -89,8 +99,9 @@ lint_plot = function(p, min_group = 10, max_legend = 6) {
   else add("const_in_aes", "PASS", "")
 
   ## 3. legend levels > 6 -> facet instead (step 5)
+  ##    any aesthetic that draws a DISCRETE legend counts, not just colour/fill
   over = character(0)
-  for (m in aes_list) for (a in c("colour", "color", "fill")) {
+  for (m in aes_list) for (a in c("colour", "color", "fill", "shape", "linetype", "size")) {
     v = eval_quo(m[[a]], data)
     if (!is.null(v) && (is.character(v) || is.factor(v))) {
       n = length(unique(v[!is.na(v)]))
@@ -136,7 +147,7 @@ lint_plot = function(p, min_group = 10, max_legend = 6) {
   ##    call, not a symbol. So evaluate the aesthetic instead of matching names.
   if (any(bars)) {
     xval = eval_quo(p$mapping$x, data); yval = eval_quo(p$mapping$y, data)
-    if (!is.null(xval) && !is.null(yval) &&
+    if (!is.null(xval) && !is.null(yval) && length(xval) == length(yval) && length(xval) > 0 &&
         (is.character(xval) || is.factor(xval)) && is.numeric(yval)) {
       agg = tapply(yval, as.factor(xval), mean, na.rm = TRUE)
       if (!identical(names(agg)[order(agg)], names(agg)))
@@ -197,15 +208,33 @@ lint_plot = function(p, min_group = 10, max_legend = 6) {
   else add("transform_guard", "PASS", "")
 
   ## 11. grouped smooth with too few observations per group (step 2/4)
+  ##     ggplot groups a smooth implicitly by ANY discrete aesthetic, so
+  ##     `aes(colour = g) + geom_smooth()` fits one line per group as well --
+  ##     that is the most common way to write it, and the one this rule used to
+  ##     miss (it only looked at an explicit `group`). `group = 1` is the
+  ##     documented way to collapse on purpose, so a numeric literal is skipped.
   sm = which(grepl("GeomSmooth", geoms))
   if (length(sm)) {
     small = character(0)
     for (i in sm) {
       m = aes_list[[i]]
-      g = quo_name_of(m$group)
-      if (!is.na(g) && g %in% names(data)) {
-        n = min(table(data[[g]]))
-        if (n < min_group) small = c(small, sprintf("group %s has %d obs", g, n))
+      grp = NULL; lab = NA_character_
+      gq = m$group
+      if (!is.null(gq)) {
+        if (is.numeric(rlang::get_expr(gq))) {
+          grp = NULL                                   # group = 1 -> collapsed on purpose
+        } else {
+          grp = eval_quo(gq, data); lab = quo_name_of(gq)
+        }
+      } else {
+        for (a in c("colour", "color", "fill", "linetype", "shape")) {
+          v = eval_quo(m[[a]], data)
+          if (!is.null(v) && (is.character(v) || is.factor(v))) { grp = v; lab = a; break }
+        }
+      }
+      if (!is.null(grp)) {
+        n = min(table(as.factor(grp)))
+        if (n < min_group) small = c(small, sprintf("grouped by %s: min %d obs", lab, n))
       }
     }
     if (length(small)) add("smooth_small_groups", "WARN",

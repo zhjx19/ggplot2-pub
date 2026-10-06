@@ -61,6 +61,21 @@ check("every structural rule has a corpus case",
       length(missing) == 0,
       if (length(missing)) paste("no case for:", paste(missing, collapse = ", ")) else "")
 
+## ---- robustness: the linter must never throw --------------------------------
+## Found by probing: a bar chart with a CONSTANT x aesthetic (the pie idiom
+## `aes("", value, fill = g)`) used to crash tapply() inside the category-sort
+## rule and take the whole regression down with it. A linter must report.
+pie_idiom = ggplot(data.frame(cat = c("a", "b", "c"), val = c(3, 4, 5)),
+                   aes("", val, fill = cat)) +
+  geom_bar(stat = "identity") + coord_polar(theta = "y")
+r = tryCatch(lint_plot(pie_idiom), error = function(e) NULL)
+check("linter survives odd-but-legal input and still flags it",
+      !is.null(r) && !any(r$rule == "linter_error") &&
+        r$status[r$rule == "polar_or_dual_axis"] == "FAIL",
+      if (is.null(r)) "threw an exception"
+      else sprintf("linter_error=%s polar=%s", any(r$rule == "linter_error"),
+                   paste(r$status[r$rule == "polar_or_dual_axis"], collapse = "/")))
+
 ## ---- version mirror must match SKILL.md frontmatter ----
 ## The README version badge reads version.json dynamically; SKILL.md stays the
 ## single source of truth. This guard is what stops the mirror from drifting.
