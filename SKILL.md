@@ -10,8 +10,8 @@ description: |
 license: MIT
 metadata:
   # 注意：metadata 值必须保持单行引号字符串——部分 skill CLI 的 YAML 解析器不接受多行裸标量
-  version: "2.7"
-  source: "重写自 05-ggplot2-rule.v1.2（Cursor rule）；v2.1 融合 ggauto/plotthis/ggnext 三包提炼；v2.3 默认主题与配色采用 tidyecology.com datasheet 风（用户指定）；v2.4 中文导出处方补全（设备 + 字体两步）、冒烟测试改为真验字形；v2.5 补末端标签去图例、小样本别分组拟合；v2.6 快检变可执行 linter + 图表语料回归；v2.7 用 linter 回放补三处漏报（隐式分组拟合、形状图例超 6、非常规输入崩溃）"
+  version: "2.8"
+  source: "重写自 05-ggplot2-rule.v1.2（Cursor rule）；v2.1 融合 ggauto/plotthis/ggnext 三包提炼；v2.3 默认主题与配色采用 tidyecology.com datasheet 风（用户指定）；v2.4 中文导出处方补全（设备 + 字体两步）、冒烟测试改为真验字形；v2.5 补末端标签去图例、小样本别分组拟合；v2.6 快检变可执行 linter + 图表语料回归；v2.7 用 linter 回放补三处漏报（隐式分组拟合、形状图例超 6、非常规输入崩溃）；v2.8 逐条规则找绕过写法，再补四处（常量藏变量、点图/横向漏查、函数包装后的重复图例、coord_flip 误报）"
   baseline: "references/baseline-v1.2-cursor-rule.md"
   verified: "R 4.6.1 / ggplot2 4.0.3 / dplyr 1.2.1 / Windows 11 实测通过（scripts/smoke-cjk.R）"
 ---

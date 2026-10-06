@@ -27,6 +27,18 @@ quo_is_literal = function(q) {
   e = rlang::get_expr(q)
   is.character(e) || is.numeric(e)
 }
+## The variable a mapping points at, seeing through wrappers such as
+## fct_reorder(cat, value) / reorder(cat, value) / as.factor(cat). Needed where
+## two mappings must be recognised as "the same variable": the recommended
+## inline fix `aes(fct_reorder(cat, v), v, colour = cat)` puts `cat` on the axis
+## through a call, and a raw-name comparison cannot see through the wrapper.
+mapped_var = function(q) {
+  if (is.null(q)) return(NA_character_)
+  e = rlang::get_expr(q)
+  if (is.symbol(e)) return(rlang::as_string(e))
+  if (is.call(e) && length(e) >= 2L && is.symbol(e[[2L]])) return(rlang::as_string(e[[2L]]))
+  NA_character_
+}
 eval_quo = function(q, data) {
   if (is.null(q) || is.null(data)) return(NULL)
   tryCatch(rlang::eval_tidy(q, data), error = function(e) NULL)
@@ -90,10 +102,24 @@ lint_plot = function(p, min_group = 10, max_legend = 6) {
   ## 2. constant mapped inside aes() -> pseudo guide (step 4 antipattern)
   ##    `group = 1` is the RECOMMENDED way to collapse grouping (step 4), so
   ##    `group` is excluded; only guide-creating aesthetics count.
+  ##    The same mistake comes in two shapes: the literal itself, and a constant
+  ##    parked in a variable first (`cols = "red"; aes(colour = cols)`). The
+  ##    second is only a mistake when the name is NOT a column of the data --
+  ##    otherwise it is a legitimate column mapping.
   guide_aes = c("colour", "color", "fill", "shape", "size", "linetype", "alpha")
   lit = character(0)
-  for (m in aes_list) for (a in intersect(names(m), guide_aes)) if (quo_is_literal(m[[a]]))
-    lit = c(lit, sprintf("%s = %s", a, deparse(rlang::get_expr(m[[a]]))))
+  for (m in aes_list) for (a in intersect(names(m), guide_aes)) {
+    q = m[[a]]
+    if (quo_is_literal(q)) {
+      lit = c(lit, sprintf("%s = %s", a, deparse(rlang::get_expr(q))))
+    } else if (!is.null(data) && is.symbol(rlang::get_expr(q)) &&
+               !rlang::as_string(rlang::get_expr(q)) %in% names(data)) {
+      v = eval_quo(q, data)
+      if (!is.null(v) && length(v) == 1L && (is.character(v) || is.factor(v)))
+        lit = c(lit, sprintf("%s = %s (constant held in a variable)", a,
+                             rlang::as_string(rlang::get_expr(q))))
+    }
+  }
   if (length(lit)) add("const_in_aes", "FAIL",
                        paste0("constant mapped in aes(): ", paste(unique(lit), collapse = "; ")))
   else add("const_in_aes", "PASS", "")
@@ -113,11 +139,15 @@ lint_plot = function(p, min_group = 10, max_legend = 6) {
   else add("legend_levels_gt6", "PASS", "")
 
   ## 4/5. legend duplicated by an axis, or by a text label (step 4/7)
+  ##    Compare the UNDERLYING variable, not the raw expression: the recommended
+  ##    inline fix `aes(fct_reorder(cat, value), value, colour = cat)` puts the
+  ##    same variable on the axis through a call, and a name-only comparison
+  ##    cannot see through the wrapper.
   dup_axis = character(0); dup_label = character(0)
-  axis_vars = c(quo_name_of(p$mapping$x), quo_name_of(p$mapping$y))
+  axis_vars = c(mapped_var(p$mapping$x), mapped_var(p$mapping$y))
   for (m in aes_list) {
     for (a in c("colour", "color", "fill")) {
-      v = quo_name_of(m[[a]])
+      v = mapped_var(m[[a]])
       if (!is.na(v) && v %in% axis_vars) dup_axis = c(dup_axis, v)
     }
     lab = quo_name_of(m$label)
@@ -136,26 +166,58 @@ lint_plot = function(p, min_group = 10, max_legend = 6) {
   else add("label_duplicates_legend", "PASS", if (legend_off) "legend off" else "")
 
   ## 6. bar chart must start at zero (step 4)
+  ##    A bar's value lives on y in DATA space, but coord_flip() renders it on
+  ##    the display x axis and panel_params follows the DISPLAY space. Measuring
+  ##    y after a flip therefore measures the CATEGORY axis (1..k, always > 0)
+  ##    and reports a false FAIL on a correct chart -- a false alarm is worse
+  ##    than a miss, because it sends you to fix what is already right.
   bars = grepl("GeomCol|GeomBar", geoms)
-  yr = panel_range(p, "y")
+  vax  = if (inherits(p$coordinates, "CoordFlip")) "x" else "y"
+  yr = panel_range(p, vax)
   if (any(bars) && !is.null(yr) && is.finite(yr[1]) && yr[1] > 0)
-    add("bar_y_not_zero", "FAIL", sprintf("panel y starts at %.3g", yr[1]))
+    add("bar_y_not_zero", "FAIL", sprintf("value axis starts at %.3g", yr[1]))
   else add("bar_y_not_zero", "PASS", if (!any(bars)) "no bar layer" else "")
 
   ## 7. character categories should be ordered by value (step 2)
   ##    The recommended fix is INLINE: aes(fct_reorder(x, value), value) -- a
   ##    call, not a symbol. So evaluate the aesthetic instead of matching names.
-  if (any(bars)) {
+  ##    Scope, both of which used to be wrong:
+  ##      * MAGNITUDE layers (bar / dot / lollipop) -- a dot plot is the very
+  ##        chart this rule pushes people towards, so it must be covered too,
+  ##        not just bars;
+  ##      * BOTH orientations -- a horizontal dot plot puts the category on y,
+  ##        which the vertical-only check never looked at.
+  ##    DISTRIBUTION layers stay out: their category axis is a deliberate design
+  ##    order (control -> treatment) and sorting by value would be wrong.
+  ##    NOTE: `grepl(..., character(0)) || ...` evaluates to NA in R (zero-length
+  ##    LHS), which then blows up `if (any(dist))` on a layer-less plot -- so
+  ##    wrap the grepl in any() to keep both sides length-1.
+  mag  = grepl("GeomCol|GeomBar|GeomPoint|GeomSegment", geoms)
+  dist = any(grepl("GeomBoxplot|GeomViolin|GeomDotplot|GeomCrossbar", geoms)) ||
+         any(vapply(p$layers, function(l) inherits(l$position, "PositionJitter"), logical(1)))
+  if (any(mag) && !any(dist)) {
     xval = eval_quo(p$mapping$x, data); yval = eval_quo(p$mapping$y, data)
-    if (!is.null(xval) && !is.null(yval) && length(xval) == length(yval) && length(xval) > 0 &&
-        (is.character(xval) || is.factor(xval)) && is.numeric(yval)) {
-      agg = tapply(yval, as.factor(xval), mean, na.rm = TRUE)
+    is_cat = function(v) !is.null(v) && (is.character(v) || is.factor(v))
+    is_num = function(v) !is.null(v) && is.numeric(v)
+    ok = !is.null(xval) && !is.null(yval) &&
+         length(xval) == length(yval) && length(xval) > 0
+    cat_v = NULL; num_v = NULL; which_axis = NA_character_
+    if (ok && is_cat(xval) && is_num(yval)) { cat_v = xval; num_v = yval; which_axis = "x" }
+    else if (ok && is_num(xval) && is_cat(yval)) { cat_v = yval; num_v = xval; which_axis = "y" }
+    if (is.null(cat_v)) {
+      add("unordered_categories", "SKIP", "category axis is neither character nor factor")
+    } else {
+      agg = tapply(num_v, as.factor(cat_v), mean, na.rm = TRUE)
       if (!identical(names(agg)[order(agg)], names(agg)))
         add("unordered_categories", "WARN",
-            "category axis not sorted by value -- use fct_reorder()")
+            sprintf("%s axis not sorted by value -- use fct_reorder()", which_axis))
       else add("unordered_categories", "PASS", "")
-    } else add("unordered_categories", "SKIP", "category axis is neither character nor factor")
-  } else add("unordered_categories", "SKIP", "no bar layer")
+    }
+  } else {
+    add("unordered_categories", "SKIP",
+        if (any(dist)) "distribution plot -- category order is deliberate"
+        else "no magnitude layer")
+  }
 
   ## 8. xlim()/ylim() drop data; coord_cartesian() only zooms (step 6)
   ##    NOTE: ggplot_build() does NOT drop out-of-range rows (measured: 3 -> 3,

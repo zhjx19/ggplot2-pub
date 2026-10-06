@@ -31,8 +31,10 @@ case_dir = file.path(root, "examples", "chart_corpus", "cases")
 cases    = list.files(case_dir, pattern = "\\.R$", full.names = TRUE)
 
 ## ---- each rule: violating case must be caught, conforming case must pass ----
+## A file named `rule__variant.R` adds another case for the same rule, so one
+## rule can be pinned down in several shapes without inventing fake rule names.
 for (f in cases) {
-  rule = sub("\\.R$", "", basename(f))
+  rule = sub("__.*$", "", sub("\\.R$", "", basename(f)))
   env  = new.env(parent = globalenv())
   ok = tryCatch({ sys.source(f, envir = env); TRUE },
                 error = function(e) { check(paste0(rule, ": source"), FALSE, conditionMessage(e)); FALSE })
@@ -55,7 +57,7 @@ for (f in cases) {
 ## ---- meta: every structural rule must have a corpus case ----
 probe   = lint_plot(ggplot(mtcars, aes(wt, mpg)) + geom_point())
 human   = human_only_rules          # single source of truth, defined in lint_plot.R
-covered = sub("\\.R$", "", basename(cases))
+covered = sub("__.*$", "", sub("\\.R$", "", basename(cases)))
 missing = setdiff(setdiff(probe$rule, human), covered)
 check("every structural rule has a corpus case",
       length(missing) == 0,
@@ -75,6 +77,39 @@ check("linter survives odd-but-legal input and still flags it",
       if (is.null(r)) "threw an exception"
       else sprintf("linter_error=%s polar=%s", any(r$rule == "linter_error"),
                    paste(r$status[r$rule == "polar_or_dual_axis"], collapse = "/")))
+
+## ---- false alarms are worse than misses -------------------------------------
+## coord_flip() renders a bar's value on the display x axis. The zero-baseline
+## rule used to measure y regardless, and y after a flip is the CATEGORY axis
+## (always > 0) -- so a correct chart got a FAIL telling you to fix it.
+flip_ok = ggplot(data.frame(cat = c("a", "b", "c"), val = c(3, 4, 5)),
+                 aes(fct_reorder(cat, val), val)) + geom_col() + coord_flip()
+rf = lint_plot(flip_ok)
+check("coord_flip bar chart is not falsely flagged on the zero baseline",
+      rf$status[rf$rule == "bar_y_not_zero"] == "PASS",
+      sprintf("got %s", paste(rf$status[rf$rule == "bar_y_not_zero"], collapse = "/")))
+
+## A distribution plot's category axis is a deliberate design order
+## (control -> treatment); the sort rule must stay out of it. This is the
+## repeat-measures guard chart from the docs, so it is the exact shape that
+## must not be "sorted".
+dist_ok = ggplot(data.frame(g = factor(rep(c("ctl", "trtA", "trtB"), each = 5),
+                                        levels = c("ctl", "trtA", "trtB")),
+                            v = c(5, 6, 5, 7, 4, 9, 8, 9, 10, 8, 3, 9, 4, 8, 2)),
+                 aes(g, v)) + geom_boxplot() + geom_jitter(width = 0.1)
+rd = lint_plot(dist_ok)
+check("distribution plot is exempt from the category-sort rule",
+      rd$status[rd$rule == "unordered_categories"] == "SKIP",
+      sprintf("got %s", paste(rd$status[rd$rule == "unordered_categories"], collapse = "/")))
+
+## Never-throws must also hold for a layer-less plot: `grepl(..., character(0)) || ...`
+## silently evaluates to NA, which used to blow up the sort rule's `if`.
+re = lint_plot(ggplot(data.frame(x = 1:3, y = 1:3), aes(x, y)))
+check("layer-less plot reports empty_layers instead of linter_error",
+      re$status[re$rule == "empty_layers"] == "FAIL" && !any(re$rule == "linter_error"),
+      sprintf("empty=%s linter_error=%s",
+              paste(re$status[re$rule == "empty_layers"], collapse = "/"),
+              any(re$rule == "linter_error")))
 
 ## ---- version mirror must match SKILL.md frontmatter ----
 ## The README version badge reads version.json dynamically; SKILL.md stays the
