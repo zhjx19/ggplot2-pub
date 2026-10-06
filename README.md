@@ -7,8 +7,10 @@
 > *「Agent 画图十次有九次像草稿，第九次还是空白图——这份技能把九次都省了。」*
 
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-ggplot2--pub-blueviolet)](SKILL.md)
+[![version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fzhjx19%2Fggplot2-pub%2Fmain%2Fversion.json&query=%24.version&label=version&color=blue)](SKILL.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![smoke](https://img.shields.io/badge/smoke-8%20checks%20%2F%200%20FAIL-brightgreen)](scripts/smoke-cjk.R)
+[![charts](https://img.shields.io/badge/charts-regression-brightgreen)](scripts/verify_charts.R)
 [![skills.sh](https://skills.sh/b/zhjx19/ggplot2-pub)](https://skills.sh/zhjx19/ggplot2-pub)
 
 **出版级 ggplot2 作图技能：真机验证过每条规则、中文环境不炸的 R 图表规范。**

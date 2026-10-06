@@ -61,6 +61,21 @@ check("every structural rule has a corpus case",
       length(missing) == 0,
       if (length(missing)) paste("no case for:", paste(missing, collapse = ", ")) else "")
 
+## ---- version mirror must match SKILL.md frontmatter ----
+## The README version badge reads version.json dynamically; SKILL.md stays the
+## single source of truth. This guard is what stops the mirror from drifting.
+read_ver = function(path, n = -1L) {
+  ln  = readLines(path, n = n, warn = FALSE)
+  hit = grep('version"?[[:space:]]*:[[:space:]]*"', ln, value = TRUE)
+  if (!length(hit)) return(NA_character_)
+  sub('.*"([^"]+)".*', "\\1", hit[1])
+}
+fm = read_ver(file.path(root, "SKILL.md"), n = 30L)
+jm = read_ver(file.path(root, "version.json"))
+check("version.json mirrors SKILL.md frontmatter",
+      !is.na(fm) && identical(fm, jm),
+      sprintf("SKILL.md=%s version.json=%s", fm, jm))
+
 cat(sprintf("\n== summary: %d check(s), %d failure(s) ==\n", total, failures))
 cat(sprintf("   rules needing eyes (never auto-checked): %s\n", paste(human, collapse = ", ")))
 if (failures > 0) quit(status = 1)
