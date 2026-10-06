@@ -13,6 +13,10 @@
 [![charts](https://img.shields.io/badge/charts-regression-brightgreen)](scripts/verify_charts.R)
 [![skills.sh](https://skills.sh/b/zhjx19/ggplot2-pub)](https://skills.sh/zhjx19/ggplot2-pub)
 
+> ⚠️ **SkillHub 分发包为纯文档裁剪版**：平台白名单禁 `.R` 脚本与无扩展名文件，包内不含
+> `scripts/`（smoke / linter / 回归）与 `examples/chart_corpus/`，上方 smoke/charts 徽章
+> 与目录树中的相应路径仅在 GitHub 完整版有效。文字规则与 `references/` 全部保留在包内。
+
 **出版级 ggplot2 作图技能：真机验证过每条规则、中文环境不炸的 R 图表规范。**
 
 [看效果](#效果示例) · [安装](#快速开始) · [触发方式](#触发方式) · [它和同类有什么不同](#它和同类有什么不同) · [安全边界](#安全边界)

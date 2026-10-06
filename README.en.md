@@ -11,6 +11,11 @@
 [![smoke](https://img.shields.io/badge/smoke-8%20checks%20%2F%200%20FAIL-brightgreen)](scripts/smoke-cjk.R)
 [![skills.sh](https://skills.sh/b/zhjx19/ggplot2-pub)](https://skills.sh/zhjx19/ggplot2-pub)
 
+> ⚠️ **SkillHub packages are documentation-only**: the platform whitelist rejects `.R` scripts and
+> extensionless files, so the zip omits `scripts/` (smoke / linter / regressions) and
+> `examples/chart_corpus/`; the smoke badge and those paths apply to the full GitHub repo only.
+> All written rules and `references/` ship in the package.
+
 **Publication-grade ggplot2 skill: every rule verified on real hardware, built to survive Chinese/CJK environments.**
 
 [See it work](#what-it-delivers) · [Install](#quick-start) · [Triggers](#trigger-phrases) · [How it differs](#how-it-differs) · [Safety](#safety-boundaries)

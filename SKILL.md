@@ -206,6 +206,11 @@ ggsave("figures/plot.png", plot = p,
    - `Rscript scripts/verify_charts.R` —— 图表语料回归：每条 linter 规则一对**违规/合规**用例，
      **违规没被抓住 = 规则没落地**。改 linter 或加规则后必跑（漏加用例会被元检查挡下）。
    **"文件生成了"和"测试全绿了"都不等于"图对了"**，第 4 条"打开看一遍"永远是最后一道。
+   > 注：SkillHub 分发包按平台校验裁剪（平台白名单默认禁 `.R` 脚本与无扩展名文件）。
+   > 若拿到的包里**没有** `scripts/*.R` 与 `examples/chart_corpus/`（默认白名单裁剪的纯文档发行），
+   > 第 3 条的 linter 与第 6 条的两个回归请跳过或从 GitHub 完整版取用；
+   > 文字规则（12 条可机检 + 5 条需人看）与 `references/` 全部保留在包内。
+   > 若包内含 `.R`（实例白名单放宽或 `--allow .r` 打的包），则上述路径有效，正常执行。
 
 ## 强制停手点
 
@@ -251,3 +256,4 @@ ggsave("figures/plot.png", plot = p,
 - `scripts/smoke-cjk.R` —— 中文环境冒烟测试（第 7 步用）
 - `scripts/lint_plot.R` —— 「快检」的可执行版本（12 条规则 + 5 条"需人看"）
 - `examples/chart_corpus/` —— 每条规则一对违规/合规用例（`scripts/verify_charts.R` 的靶子）
+- 注：后三条（`scripts/` 与 `examples/chart_corpus/`）在默认白名单的 SkillHub 裁剪包中不存在，以 GitHub 完整版为准。
