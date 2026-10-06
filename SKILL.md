@@ -10,8 +10,8 @@ description: |
 license: MIT
 metadata:
   # 注意：metadata 值必须保持单行引号字符串——部分 skill CLI 的 YAML 解析器不接受多行裸标量
-  version: "2.4"
-  source: "重写自 05-ggplot2-rule.md v1.2（Cursor rule）；v2.1 融合 ggauto/plotthis/ggnext 三包提炼；v2.3 默认主题与配色采用 tidyecology.com datasheet 风（用户指定）；v2.4 中文导出处方补全（设备 + 字体两步）、冒烟测试改为真验字形"
+  version: "2.5"
+  source: "重写自 05-ggplot2-rule.v1.2（Cursor rule）；v2.1 融合 ggauto/plotthis/ggnext 三包提炼；v2.3 默认主题与配色采用 tidyecology.com datasheet 风（用户指定）；v2.4 中文导出处方补全（设备 + 字体两步）、冒烟测试改为真验字形；v2.5 补末端标签去图例、小样本别分组拟合"
   baseline: "references/baseline-v1.2-cursor-rule.md"
   verified: "R 4.6.1 / ggplot2 4.0.3 / dplyr 1.2.1 / Windows 11 实测通过（scripts/smoke-cjk.R）"
 ---
@@ -63,9 +63,9 @@ plot_data = df |>
 | 数据关系 | 首选 | 注意 |
 |---|---|---|
 | 单个连续变量分布 | 直方图 / 密度（零依赖）；`ggdist::stat_halfeye()` 装了更佳 | 样本点可轻微 jitter |
-| 连续 vs 连续 | `geom_point()` + `geom_smooth()` | 大样本用透明度或 `geom_bin2d()` |
+| 连续 vs 连续 | `geom_point()` + `geom_smooth()` | 大样本用透明度或 `geom_bin2d()`；**分组拟合前先看每组观测数**——每组很少（如 <10）时不要分组各拟合一条，那是过度解读，改画一条总体趋势或只画点 |
 | 离散 vs 连续 | `geom_col()` / boxplot / halfeye | 类别按值排序（见下） |
-| 时间 vs 连续 | `geom_line()` | 折线末端可直接标签 |
+| 时间 vs 连续 | `geom_line()` | 折线末端可直接标签；**用了末端标签就去掉图例**（`legend.position = "none"`），别两样都留 |
 | 两个类别变量 | 堆叠/分组柱或热图 | 百分比需标明分母 |
 | 多组趋势 | ≤6 组可上色；超过必须分面，每面板高亮本组 | 见 `references/multipanel.md`；避免意大利面条图 |
 
@@ -119,7 +119,8 @@ theme_pub = function(base_size = 12, base_family = "sans") {
 | 分布 | `ggdist::stat_halfeye()`（增强） | boxplot 隐藏离群点时需说明 |
 | 误差条/CI | `geom_errorbar(width = 0.15)` / `geom_pointrange()` | 先聚合算 SE/CI，配方见 `references/recipes.md` |
 | 显著性标注 | 手写括号：`geom_path + annotate` | 零依赖配方见 `references/recipes.md`，不必装 ggsignif |
-| 标签 | `ggrepel::geom_text_repel()` | 禁止标签重叠 |
+| 标签 | `ggrepel::geom_text_repel()` | 禁止标签重叠；用末端/直接标签时同步 `theme(legend.position = "none")`——图例与标签重复是"业余感"的常见来源 |
+| 趋势线 | `geom_smooth(method = "lm", se = FALSE)` | 先看每组观测数：每组 <10 时只画一条总体（`aes(group = 1)`），别分组拟合 |
 | 多图 | `patchwork` | `gridExtra`/`cowplot` 仅作降级 |
 
 ```r
@@ -192,6 +193,7 @@ ggsave("figures/plot.png", plot = p,
    - 连续型 geom（point/line）没把分类列喂给 y；
    - 缺失值多到影响解读时，图上或注脚已说明；
    - 图例级别超过 6 个 → 改分面，不堆图例；
+   - 图例是否与坐标轴标签 / 折线末端标签重复？重复就去掉（`legend.position = "none"`）；
    - `sqrt()/log()` 类变换没喂非法值；
    - 同一类别在多面板/多图里颜色一致。
 4. **把导出的文件实际打开看一遍**：中文可读、无 `□`、标题左对齐、标签不重叠、
