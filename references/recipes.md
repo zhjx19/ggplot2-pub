@@ -1,8 +1,58 @@
 # 出版统计标注与图型配方（recipes）
 
-> SKILL.md 第 4/6 步的深料：误差条/置信区间、显著性标注、坐标变换、热图。
+> SKILL.md 第 4/6 步的深料：误差条/置信区间、显著性标注、坐标变换、热图、图例空间、哑铃图。
 > 全部配方零额外依赖（ggplot2 + dplyr + scales），且在本技能验证环境
 > （R 4.6.1 / ggplot2 4.0.3）渲染通过。含中文标签时遵循第 6 步导出防线。
+
+## 图例空间（图例不占面板宽度的三种办法）
+
+出版图里图例最贵的不是信息量，是它吃掉的整栏宽度。先按 SKILL.md 第 4 步的判据删掉能删的，
+剩下必需的再谈"放哪儿"：
+
+```r
+# A. 内嵌到面板空白角（最省宽度，但要配背景 + 描边，否则压点）
+p + theme(
+  legend.position = "inside",
+  legend.position.inside = c(0.9, 0.2),               # c(0,0) 左下，c(1,1) 右上
+  legend.background = element_rect(fill = "#f5f4ee", colour = "#2c3a31", linewidth = 0.3),
+  legend.key = element_blank()
+)
+
+# B. 连续色标压成横向条，塞到图下角
+p + guides(fill = guide_colourbar(
+      barwidth = unit(4, "cm"), barheight = unit(0.3, "cm"), title.position = "top")) +
+    theme(legend.position = "bottom", legend.justification.bottom = "right",
+          legend.direction = "horizontal", legend.margin = margin(-5, 5, 0, 0))
+
+# C. 彻底不要图例：把类别写进副标题或图内 annotate()，图内只留一次编码
+p + theme(legend.position = "none") +
+    annotate("text", x = ..., y = ..., label = "森林色 = 处理组", colour = "#275139", hjust = 0)
+```
+
+- 内嵌图例的坐标是**面板内**比例，不随画布尺寸变，所以换宽高后要重看一眼是否压点。
+- `legend.position = "inside"` 需要 ggplot2 ≥ 3.5；更早的版本只能用 `legend.position = c(x, y)`。
+- 图例条目 ≤3 且图内确有空白时，A 几乎总比默认右侧栏好看；条目多就别内嵌，改分面。
+- 图例框与 annotate 的框样式（圆/方角、描边色）要一致，两种框混搭一眼业余。
+
+## 哑铃图（同一对象的前后/跨度对比）
+
+```r
+dd = df |> mutate(item = fct_reorder(item, t0))     # 按起点排序，读者才好顺着比长度
+
+ggplot(dd, aes(y = item)) +
+  geom_segment(aes(x = t0, xend = t1, yend = item), linewidth = 1, colour = "#dad9ca") +
+  geom_point(aes(x = t0), size = 3, colour = "#275139") +   # 起点：浅
+  geom_point(aes(x = t1), size = 3, colour = "#b5534e") +   # 终点：深
+  scale_y_discrete(NULL) +
+  labs(x = "年份", y = NULL)
+```
+
+- 起点/终点只用**同色系深浅**区分，别用两种对比色——哑铃图要读的是"长度=差值"，
+  两端颜色抢眼会让人以为在比两个独立类别。
+- 时间跨度比较时，仍活跃的对象可以不画终点（开口哑铃），否则"上周还在更新"和"二十年前停更"
+  会被画成同一个终点。
+- 两端都要标数值时用 `geom_text(nudge_y = 0.2)` 而不是图例；标签写端点值，不写差值，
+  差值用副标题点出来。
 
 ## 误差条 / 置信区间（出版刚需）
 

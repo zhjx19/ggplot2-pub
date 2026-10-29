@@ -1,6 +1,6 @@
 # chart_corpus — 图表规则的语料（每条规则一对：违规 / 合规）
 
-`scripts/lint_plot.R` 是第 7 步「快检」的可执行版本（12 条机检 + 5 条必须人看）；这个目录是它的靶子。
+`scripts/lint_plot.R` 是第 7 步「快检」的可执行版本（13 条机检 + 5 条必须人看）；这个目录是它的靶子。
 
 ## 为什么有它
 
@@ -28,6 +28,7 @@ ggplot2-pub 的规则原来全是**散文**——散文规则不会让构建失�
 | `legend_duplicates_axis` | 第 4/7 步：图例重复了坐标轴 |
 | `legend_duplicates_axis__reordered_axis` | 同上：轴上走 `fct_reorder(cat, v)` 时也要认得出是同一个变量 |
 | `label_duplicates_legend` | 第 4 步：末端/直接标签时图例多余 |
+| `redundant_colour_with_facet` | 第 4 步：分面标题已标出类别，仍给同一变量配色 + 留图例（冗余双编码、白占一栏）|
 | `bar_y_not_zero` | 第 4 步：柱状图数值轴从 0 开始（`coord_flip()` 后数值轴在 x，不得误报）|
 | `unordered_categories` | 第 2 步：字符型类别按值排序（factor 尊重既有顺序）|
 | `unordered_categories__dot_horizontal` | 同上：点图与横向朝向同样要查；**分布图豁免**（类目轴是刻意的设计顺序）|

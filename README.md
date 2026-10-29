@@ -108,14 +108,14 @@ ggplot2-pub/
 ├── test-prompts.json               # 3 个功能场景 + 触发/负触发用例
 ├── references/
 │   ├── palettes.md                 # Okabe-Ito / Paul Tol HEX 速查 + 零依赖色盲自检
-│   ├── recipes.md                  # 误差条/CI、显著性括号、坐标变换、热图配方
+│   ├── recipes.md                  # 误差条/CI、显著性括号、坐标变换、热图、图例空间、哑铃图配方
 │   ├── multipanel.md               # 多面板决策表、每面板高亮、尺寸估算
 │   ├── antipatterns.md             # 反模式前后对照（图 + 代码 + 修法）
 │   ├── img/cjk-crash-mojibake.png  # 真实事故截图（乱码标题）
 │   └── baseline-v1.2-cursor-rule.md  # v1.2 原始规则存档
 ├── scripts/
-│   ├── smoke-cjk.R                 # 环境冒烟：8 项检查，全 PASS 才交付
-│   ├── lint_plot.R                 # 「快检」的可执行版本：12 条规则 + 5 条"需人看"
+│   ├── smoke-cjk.R                 # 环境冒烟：locale/包/中文导出字形/中文路径导出断言，无 FAIL 才交付
+│   ├── lint_plot.R                 # 「快检」的可执行版本：13 条规则 + 5 条"需人看"
 │   ├── verify_charts.R             # 图表语料回归：每条规则一对违规/合规用例
 │   ├── make-showcase.R             # 重渲染 README 前后对照图
 │   └── make-demo.R                 # 可选：重录终端演示 GIF（真实回放，无需 vhs）
@@ -130,8 +130,8 @@ ggplot2-pub/
 ## 验证与测试
 
 ```bash
-Rscript scripts/smoke-cjk.R      # 环境与中文导出：期望全 PASS
-Rscript scripts/verify_charts.R  # 图表规则语料：期望 25 check / 0 failure
+Rscript scripts/smoke-cjk.R      # 环境与中文导出：无 FAIL（终端下会有 1 条 locale WARN）
+Rscript scripts/verify_charts.R  # 图表规则语料：期望 38 check / 0 failure
 ```
 
 **两套回归各管一头**：`smoke-cjk.R` 管环境（locale、包、中文导出的**字形**——它验文字层和内嵌

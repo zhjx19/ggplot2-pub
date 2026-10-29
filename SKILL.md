@@ -10,8 +10,8 @@ description: |
 license: MIT
 metadata:
   # 注意：metadata 值必须保持单行引号字符串——部分 skill CLI 的 YAML 解析器不接受多行裸标量
-  version: "2.8"
-  source: "重写自 05-ggplot2-rule.v1.2（Cursor rule）；v2.1 融合 ggauto/plotthis/ggnext 三包提炼；v2.3 默认主题与配色采用 tidyecology.com datasheet 风（用户指定）；v2.4 中文导出处方补全（设备 + 字体两步）、冒烟测试改为真验字形；v2.5 补末端标签去图例、小样本别分组拟合；v2.6 快检变可执行 linter + 图表语料回归；v2.7 用 linter 回放补三处漏报（隐式分组拟合、形状图例超 6、非常规输入崩溃）；v2.8 逐条规则找绕过写法，再补四处（常量藏变量、点图/横向漏查、函数包装后的重复图例、coord_flip 误报）"
+  version: "2.9"
+  source: "重写自 05-ggplot2-rule.v1.2（Cursor rule）；v2.1 融合 ggauto/plotthis/ggnext 三包提炼；v2.3 默认主题与配色采用 tidyecology.com datasheet 风（用户指定）；v2.4 中文导出处方补全（设备 + 字体两步）、冒烟测试改为真验字形；v2.5 补末端标签去图例、小样本别分组拟合；v2.6 快检变可执行 linter + 图表语料回归；v2.7 用 linter 回放补三处漏报（隐式分组拟合、形状图例超 6、非常规输入崩溃）；v2.8 逐条规则找绕过写法，再补四处（常量藏变量、点图/横向漏查、函数包装后的重复图例、coord_flip 误报）；v2.9 从《The Art of Data Visualization with ggplot2》(nrennie, TidyTuesday Cookbook) 提炼：图例空间预算与图例替代、哑铃图入图型矩阵、中文路径导出的静默失败修正（ragg 在非 ASCII 目录写不出文件）"
   baseline: "references/baseline-v1.2-cursor-rule.md"
   verified: "R 4.6.1 / ggplot2 4.0.3 / dplyr 1.2.1 / Windows 11 实测通过（scripts/smoke-cjk.R）"
 ---
@@ -67,6 +67,7 @@ plot_data = df |>
 | 离散 vs 连续 | `geom_col()` / boxplot / halfeye | 类别按值排序（见下） |
 | 时间 vs 连续 | `geom_line()` | 折线末端可直接标签；**用了末端标签就去掉图例**（`legend.position = "none"`），别两样都留 |
 | 两个类别变量 | 堆叠/分组柱或热图 | 百分比需标明分母 |
+| 同一对象的前后/跨度对比 | 哑铃图：`geom_segment()` 连线 + 两端 `geom_point()` | 一行一个对象，两点用同色系深浅区分"前/后"（起点浅、终点深）；**不要**用两根并排柱——并排柱让读者自己算差值，哑铃图的长度就是差值 |
 | 多组趋势 | ≤6 组可上色；超过必须分面，每面板高亮本组 | 见 `references/multipanel.md`；避免意大利面条图 |
 
 排序细则：字符型类别用 `fct_reorder(x, value)` 按值排；**factor 尊重既有水平顺序**，
@@ -130,6 +131,25 @@ geom_point(aes(color = "steelblue"))
 geom_point(color = "steelblue")
 ```
 
+#### 图例的空间预算（出版图最常被审稿意见点的地方）
+
+图例吃掉的宽度，本来就是面板该用的宽度。**一个判据：图例里的信息，图内是不是已经写过一次？**
+
+| 图内已有的信息 | 处置 |
+|---|---|
+| 类别已由分面标题（strip）标出 | 删掉配色与图例——`facet_wrap(~g) + aes(colour = g)` 是同一件事说两遍，还多占一栏（linter 报 `redundant_colour_with_facet`） |
+| 折线末端/柱端已有直接标签 | `theme(legend.position = "none")` |
+| 类别 ≤3 且角落有空白 | 图例搬进面板：`legend.position = "inside"` + `legend.position.inside = c(0.9, 0.2)`（`c(0,0)` 左下、`c(1,1)` 右上），配 `legend.background = element_rect(fill = te_paper, colour = te_body, linewidth = 0.3)` |
+| 连续色标占右侧整栏 | 压成横向色标塞图下角：`guides(fill = guide_colourbar(barwidth = unit(4, "cm"), barheight = unit(0.3, "cm"), title.position = "top"))` + `legend.position = "bottom"` + `legend.justification.bottom = "right"` |
+
+- 内嵌图例**必须**落在数据稀疏的角，且加背景填充 + 描边；否则压点，读者分不清图例和散点
+  （实测：图例放右侧 0.9 而该列正好有点时，直接盖住两个点）。
+- 图例框与注释框样式要一致（同为方/圆角、同描边色）——两种框混搭是最廉价的"业余感"。
+- 图例条目少且面板窄时，优先把条目写进副标题或图内文字（"森林色 = 处理组"），再关图例。
+- **不要用 `aes(pattern = ...)` 做第二编码**：ggplot2 4.0.3 接受这个美学名但不渲染（无 `scale_pattern_*`），
+  图案填充必须装 `ggpattern`，属非零依赖。灰度打印/色盲的第二通道用**形状**（`scale_shape_manual`）与
+  **线型**（`scale_linetype_manual`），零依赖。
+
 ### 第 5 步：配色（零依赖优先，不推荐用户装冷门色板包）
 
 | 场景 | 首选（零依赖/内置） | 备选 |
@@ -156,16 +176,46 @@ ggsave("figures/plot.png", plot = p,
 
 - 必须显式 `width`、`height`、`dpi`、`bg`；`bg` 与主题背景一致——theme_pub 图用
   `bg = "#f5f4ee"`（深色编辑器/幻灯片环境下透明背景会不可读）。
+- 投稿图**宽度按期刊栏宽给**，不按屏幕好看来给：单栏约 85 mm、双栏约 180 mm，
+  `ggsave(width = 85, units = "mm", dpi = 600)`；期刊要求"图内不放标题、标题写进图注"时，
+  把 `labs(title = NULL)` 关掉，只留轴标签与注脚——这条以目标期刊的 author guidelines 为准。
 - 报告预览用 PNG；论文投稿用 PDF/SVG 矢量。**中文图导出就两件事：设备对 + 字体有中文字形**，
   缺一件就废：
   - **设备**（选一）：`device = cairo_pdf`（矢量、文字可选中，投稿首选）｜
     `sysfonts::font_add()` + `showtext::showtext_auto()`（文字转轮廓，PDF 抽不出文本）｜
-    `ragg::agg_png`（位图，零配置，但不能当投稿矢量）；
+    `ragg::agg_png`（位图，零配置，但不能当投稿矢量；**中文目录 + 相对文件名 + 非 UTF-8 locale 时它写不出文件**，见下文路径防线）；
   - **字体**（不能省）：`theme_pub(base_family = "<中文字体>")`——走 showtext 则由 `font_add()` 注册。
     省了它，字体族落到 `sans`，在 Windows 上就是 Arial，**没有中文字形**。
 - 只做设备那一步会看到的两种残局：默认 `pdf()` → **点号**（静默，文件照常生成；警告数与图里汉字数
   成正比，实测 61 条）；`cairo_pdf` 不指定字体 → **方块**（字体表里内嵌的是 ArialMT 子集，而文字层
   抽取却正常，所以只有打开看才发现）。
+- **中文目录 + 相对文件名会把 PNG 静默吃掉**（实测 R 4.6.1 / ragg 1.5.2 / Windows 11）：
+  三个条件同时成立时——工作目录路径含中文、`ggsave("fig.png")` 用**相对**文件名、locale 不是 UTF-8
+  （`l10n_info()[["UTF-8"]]` 为 `FALSE`，从 Git Bash / 终端跑 `Rscript` 时最常见）——
+  只会在收尾时吐一条 `agg could not write to the given file`，**`ggsave()` 不报错、文件不存在**。
+  根因是 png 落到 `ragg::agg_png`，它在 `dev.off()` 时才按 locale 解析相对路径，中文目录解析失败。
+  实测边界（同一目录，只换写法）：
+
+  | 写法 | 结果 |
+  |---|---|
+  | `ggsave("fig.png")` 或 `device = ragg::agg_png`，相对名 | ✗ 无文件，仅 warning |
+  | `ragg::agg_png` + **绝对**路径 | ✓ |
+  | `grDevices::png(type = "cairo")` + 相对名 | ✓ |
+  | `cairo_pdf` / `svg`，相对名 | ✓ |
+
+  处置（两条任选，第二条更稳，因为不依赖调用方记得拼路径）：
+  ```r
+  png_cairo = function(filename, width, height, ...) {
+    grDevices::png(filename, width = width, height = height, units = "in", res = 300, type = "cairo", ...)
+  }
+  f = "figures/fig-1.png"
+  ggsave(f, p, width = 10, height = 6, dpi = 300, bg = te_paper, device = png_cairo)
+  stopifnot(file.exists(f), file.size(f) > 0)   # 唯一能拦住静默失败的断言
+  ```
+  实测该写法输出严格 3000×1800 px（10 in × 300 dpi）且中文字形正常，矢量图照旧 `device = cairo_pdf`。
+- **预览与导出必须同尺寸同 dpi**：RStudio Plots 面板按 96 dpi 渲染，`ggsave()` 默认 300 dpi，
+  所以"预览里字正好、导出来字巨大"是同一个图的两种分辨率，不是排版错。改图前先按最终
+  `width/height/dpi` 导一张 PNG 打开看，别在 96 dpi 预览里调字号。
 - 中文 PDF 会明显变大（实测 7～10 倍）。SVG 两写法实测中文正常：默认设备（有 svglite 时）
   或 `device = svg`（零依赖）。
 - 数据跨零（有正有负）时加灰色零线，让正负一眼可分：
@@ -179,37 +229,43 @@ ggsave("figures/plot.png", plot = p,
 | 症状 | 根因 | 处置 |
 |---|---|---|
 | `ggsave` 报 `gridtext ... isn't supported` 且导出空白图 | 脚本中文被 legacy locale 读成乱码，乱码在富文本管线里拼出伪 HTML 标签 | 用 UTF-8 保存脚本并在 IDE 中运行；标题副标题保持纯文本（见第 3 步） |
-| 图里中文变方块 `□□□` | 图形设备缺 CJK 字形。**注意：只加 `device = cairo_pdf` 也会落到这一行**——设备对了，字体族仍是 Arial | `theme_pub(base_family = "<中文字体>")`，或 `ggsave(device = ragg::agg_png)`；`showtext` 必须**先 `sysfonts::font_add()` 注册中文字体**，否则照样方块 |
+| 图里中文变方块 `□□□` | 图形设备缺 CJK 字形。**注意：只加 `device = cairo_pdf` 也会落到这一行**——设备对了，字体族仍是 Arial | `theme_pub(base_family = "<中文字体>")`，或 `ggsave(device = ragg::agg_png)`（中文目录里改走 `png_cairo`）；`showtext` 必须**先 `sysfonts::font_add()` 注册中文字体**，否则照样方块 |
 | `+ theme()` 报 `Only elements of the same class can be merged` | 在覆盖 ggtext textbox 主题元素 | 换 `theme_pub()`；要变体就写新的工厂函数 |
 | 终端跑 `Rscript` 时路径/字符串中文变乱码 | R 启动在非 UTF-8 locale | 启动前设环境变量 `LC_CTYPE="Chinese (Simplified)_China.utf8"`（实测可从 Git Bash 救回整个管线） |
 | 投稿 PDF 打开全是点号 `......`，无报错 | `ggsave` 默认 `pdf()` 设备不做 CJK 转换，静默逐字替换 | `ggsave(device = cairo_pdf, ...)` **且**指定中文字体族——**只做前半步会从"点号"变成"方块"**（见第 6 步两步走）。实测 cairo_pdf + 中文字体后 0 警告、字体内嵌 |
+| `ggsave("fig.png")` 只报 `agg could not write to the given file`，目录里没有文件 | 中文工作目录 + 相对文件名 + 非 UTF-8 locale：`ragg::agg_png`（png 的默认设备）在 `dev.off()` 时解析相对路径失败 | 传绝对路径，或位图改 `grDevices::png(type = "cairo")`（第 6 步 `png_cairo`）；导出后必断 `file.exists()` + `file.size() > 0` |
 
 ### 第 7 步：交付前验收（不可省）
 
 1. 数据在 `ggplot()` 前已整理；类别按值排序，factor 顺序是有意为之。
 2. 图表类型匹配变量关系；无饼图/3D/双轴/彩虹色。
 3. **快检——可机检的部分直接跑 linter，别用眼睛过**：
-   `source("scripts/lint_plot.R"); lint_plot(p)` → 逐条 PASS/WARN/FAIL。覆盖 12 条：
+   `source("scripts/lint_plot.R"); lint_plot(p)` → 逐条 PASS/WARN/FAIL。覆盖 13 条：
    空图层、常量进 `aes()`（伪图例）、图例级别 >6、图例重复坐标轴或标签、柱状图 Y 轴从 0 开始、
    字符类别按值排序、`xlim()/ylim()` 删数据、饼图/双轴、`log/sqrt` 喂非正值、小样本分组拟合、
-   两个轴都是分类的散点。
+   两个轴都是分类的散点、分面标题已标类别却仍配色（冗余双编码）。
    **五条只能靠眼睛**（标题是否结论式、配色是否协调、标签是否真没压在一起、缺失是否已说明、
    跨图同色）——linter 明确报 `SKIP`，不假装被验过，它们归下一条。
 4. **把导出的文件实际打开看一遍**：中文可读、无 `□`、标题左对齐、标签不重叠、
    柱状图 Y 轴从 0 开始、跨零数据零线可见。只看过代码没看过图 = 没有验收。
+   **打开前先确认文件真存在**：`stopifnot(file.exists(f), file.size(f) > 0)`——
+   路径含中文时 `ggsave()` 会"成功返回但不写文件"（第 6 步），这是本技能遇到过最像成功的失败。
 5. **对账交付**：正式交付时把"图上画的数"一并导出，图和数据必须对得上：
    `write.csv(ggplot_build(p)$data[[1]], "figure-1-data.csv", row.names = FALSE)`
    （存的是统计变换后的最终绘制值，不是喂进去的原始值。）
+   分面图的 `PANEL` 列是 `1..k` 的数字，不是类别名——对账前先映射回去，否则导出的表看不出是哪一格：
+   `build = ggplot_build(p)$data[[1]]; build$panel = levels(factor(df$g))[build$PANEL]`
 6. 改渲染规则或交付前跑两个回归，全 PASS 再交付：
    - `Rscript scripts/smoke-cjk.R` —— 环境与中文导出。第 5 项**验字形**（文字层 + 内嵌字体），
      不是只验文件存在；它以前只验 `file.exists + size`，一张**方块**的 PDF 照样报 PASS。
+     第 5b 项在中文目录里断言位图真的写出去了（第 6 步那个静默失败的回归）。
    - `Rscript scripts/verify_charts.R` —— 图表语料回归：每条 linter 规则一对**违规/合规**用例，
      **违规没被抓住 = 规则没落地**。改 linter 或加规则后必跑（漏加用例会被元检查挡下）。
    **"文件生成了"和"测试全绿了"都不等于"图对了"**，第 4 条"打开看一遍"永远是最后一道。
    > 注：SkillHub 分发包按平台校验裁剪（平台白名单默认禁 `.R` 脚本与无扩展名文件）。
    > 若拿到的包里**没有** `scripts/*.R` 与 `examples/chart_corpus/`（默认白名单裁剪的纯文档发行），
    > 第 3 条的 linter 与第 6 条的两个回归请跳过或从 GitHub 完整版取用；
-   > 文字规则（12 条可机检 + 5 条需人看）与 `references/` 全部保留在包内。
+   > 文字规则（13 条可机检 + 5 条需人看）与 `references/` 全部保留在包内。
    > 若包内含 `.R`（实例白名单放宽或 `--allow .r` 打的包），则上述路径有效，正常执行。
 
 ## 强制停手点
@@ -233,6 +289,8 @@ ggsave("figures/plot.png", plot = p,
 | 柱状图不从 0 开始 | 从 0 开始或换点图 |
 | ggtext textbox 做标题且图含中文 | `theme_pub()` 纯文本标题（第 3 步） |
 | 中文图只加 `device = cairo_pdf`，不指定中文字体族 | `theme_pub(base_family = "<中文字体>")`，或 `ragg::agg_png`（第 6 步两步走） |
+| 分面标题已经标出类别，还给同一变量配色 + 留图例 | 删配色与图例——同一件事说两遍还多占一栏（第 4 步图例空间预算） |
+| 中文目录里用相对文件名 + 默认 png 设备（ragg） | 传绝对路径，或位图改 `grDevices::png(type = "cairo")`，导出后断 `file.exists()`（第 6 步） |
 
 ## 依赖与降级（不逼用户装冷门包）
 
@@ -249,11 +307,11 @@ ggsave("figures/plot.png", plot = p,
 ## 深料索引（按需读取，勿全量加载）
 
 - `references/palettes.md` —— tidyecology 默认色板 / Okabe-Ito / Paul Tol HEX 速查 + 零依赖色盲自检
-- `references/recipes.md` —— 误差条/CI、显著性括号、坐标变换、热图配方
+- `references/recipes.md` —— 误差条/CI、显著性括号、坐标变换、热图、图例空间（内嵌图例/横向色标）、哑铃图配方
 - `references/multipanel.md` —— 多面板决策表（分面 vs 拆分）、每面板高亮、尺寸估算
 - `references/antipatterns.md` —— 反模式前后对照代码与渲染图
 - `references/baseline-v1.2-cursor-rule.md` —— v1.2 原始规则存档（溯源用）
 - `scripts/smoke-cjk.R` —— 中文环境冒烟测试（第 7 步用）
-- `scripts/lint_plot.R` —— 「快检」的可执行版本（12 条规则 + 5 条"需人看"）
+- `scripts/lint_plot.R` —— 「快检」的可执行版本（13 条规则 + 5 条"需人看"）
 - `examples/chart_corpus/` —— 每条规则一对违规/合规用例（`scripts/verify_charts.R` 的靶子）
 - 注：后三条（`scripts/` 与 `examples/chart_corpus/`）在默认白名单的 SkillHub 裁剪包中不存在，以 GitHub 完整版为准。

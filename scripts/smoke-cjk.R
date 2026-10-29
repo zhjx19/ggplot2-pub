@@ -165,6 +165,44 @@ if (!is.null(resp) || !file.exists(fp)) {
   }
 }
 
+# 5b. Non-ASCII OUTPUT PATH. The default png device (ragg::agg_png) can fail to
+#     write while ggsave() reports no error at all -- the file is simply absent.
+#     Measured trigger (R 4.6.1 / ragg 1.5.2 / Windows 11): CJK working
+#     directory + RELATIVE filename + non-UTF-8 locale; ragg resolves the
+#     relative path only at dev.off(), where the locale cannot decode it.
+#     The cairo recipe this skill ships must survive it, and the assertion is
+#     what catches the silent failure -- so both are asserted here.
+cjk_dir <- file.path(outdir, "\u4e2d\u6587\u8def\u5f84")
+dir.create(cjk_dir, showWarnings = FALSE)
+old_wd <- setwd(cjk_dir)
+png_cairo <- function(filename, width, height, ...) {
+  grDevices::png(filename, width = width, height = height, units = "in",
+                 res = 150, type = "cairo", ...)
+}
+fc <- "canary-cairo.png"
+r_cairo <- tryCatch({ ggsave(fc, plot = p, width = 6, height = 4, dpi = 150,
+                             bg = "#f5f4ee", device = png_cairo); NULL },
+  error = function(c) conditionMessage(c))
+if (is.null(r_cairo) && file.exists(fc) && file.size(fc) > 5000) {
+  report("PASS", "non-ASCII path: cairo png recipe writes the file",
+         sprintf("%.1f KB", file.size(fc) / 1024))
+} else {
+  report("FAIL", "non-ASCII path: cairo png recipe wrote nothing",
+         if (!is.null(r_cairo)) r_cairo else "file missing or too small")
+}
+fd <- "canary-default.png"
+withCallingHandlers(
+  tryCatch(ggsave(fd, plot = p, width = 6, height = 4, dpi = 150, device = "png"),
+           error = function(e) NULL),
+  warning = function(w) invokeRestart("muffleWarning"))
+if (file.exists(fd)) {
+  report("INFO", "non-ASCII path: default png device also works on this setup")
+} else {
+  report("WARN", "non-ASCII path: default png device wrote NOTHING (known ragg limit)",
+         "keep the png_cairo recipe + file.exists() assertion on this machine")
+}
+setwd(old_wd)
+
 # 6. zero-dep CVD checker sanity (base-R Machado simulation, see references/palettes.md)
 cvd_check <- function(palette) {
   s2l <- function(u) ifelse(u <= 0.04045, u / 12.92, ((u + 0.055) / 1.055)^2.4)

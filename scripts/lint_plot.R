@@ -165,6 +165,32 @@ lint_plot = function(p, min_group = 10, max_legend = 6) {
         paste0("label and colour both map ", unique(dup_label)[1], " -- drop the legend"))
   else add("label_duplicates_legend", "PASS", if (legend_off) "legend off" else "")
 
+  ## 5b. colour/fill repeats a FACETING variable (step 4 "legend budget")
+  ##     facet_wrap(~g) + aes(colour = g) encodes the same variable twice: the
+  ##     strip already says which panel is which, yet the colour mapping still
+  ##     charges a full legend column out of the panel's width. Compared on the
+  ##     UNDERLYING variable so the call wrappers (`~ fct_relevel(g, ...)`,
+  ##     `aes(colour = g)`) still match, and only flagged while the legend is
+  ##     actually shown -- with `legend.position = "none"` the colour is paying
+  ##     no space and may be a deliberate per-panel highlight.
+  facet_vars = character(0)
+  for (slot in c("facets", "rows", "cols")) {
+    qs = p$facet$params[[slot]]
+    if (is.null(qs)) next
+    for (q in qs) facet_vars = c(facet_vars, mapped_var(q))
+  }
+  facet_vars = unique(facet_vars[!is.na(facet_vars)])
+  redundant = character(0)
+  if (length(facet_vars)) for (m in aes_list) for (a in c("colour", "color", "fill")) {
+    v = mapped_var(m[[a]])
+    if (!is.na(v) && v %in% facet_vars) redundant = c(redundant, sprintf("%s = %s", a, v))
+  }
+  if (length(redundant) && !legend_off)
+    add("redundant_colour_with_facet", "WARN",
+        paste0(paste(unique(redundant), collapse = "; "),
+               " -- the facet strip already labels it: drop colour + legend"))
+  else add("redundant_colour_with_facet", "PASS", if (legend_off) "legend off" else "")
+
   ## 6. bar chart must start at zero (step 4)
   ##    A bar's value lives on y in DATA space, but coord_flip() renders it on
   ##    the display x axis and panel_params follows the DISPLAY space. Measuring
